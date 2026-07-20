@@ -297,6 +297,11 @@ return NOMS_JURIDICTIONS[j] || (juridiction || 'Décision').toUpperCase();
 fetch(`${ADRESSE_SERVEUR}/api/jurisprudence?query=RGPD`)
 .then(reponse => reponse.json())
 .then(donnees => {
+if (donnees.derniere_maj) {
+const dateMaj = new Date(donnees.derniere_maj);
+const dateFormatee = dateMaj.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+document.querySelector('.eyebrow').innerHTML = `<span class="dot"></span>Mise à jour du ${dateFormatee}`;
+}
 const boite = document.getElementById('caseGrid');
 boite.innerHTML = '';
 if (!donnees.results || donnees.results.length === 0) {
