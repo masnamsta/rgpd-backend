@@ -3,8 +3,8 @@
 //
 // AJOUT : un cache mémoire alimenté par une récupération PAGINÉE de TOUTES
 // les décisions Judilibre liées au RGPD, rafraîchi automatiquement via cron.
-// CORRECTIF : gestion d'erreur isolée par requête, pour qu'un échec sur
-// une formulation (ex. erreur 416 Judilibre) n'annule plus tout le cache.
+// CORRECTIF : gestion d'erreur isolée par requête + plafond MAX_PAGES pour
+// éviter d'atteindre la limite de pagination de Judilibre (erreur 416).
 
 require('dotenv').config();
 const express = require('express');
@@ -15,7 +15,7 @@ const app = express();
 app.use(express.static('public'));
 app.use(cors());
 app.use(express.json());
-const ENV = process.env.PISTE_ENV || 'sandbox'; // 'sandbox' ou 'production'
+const ENV = process.env.PISTE_ENV || 'sandbox';
 
 const CONFIG = {
   sandbox: {
@@ -32,9 +32,6 @@ const CONFIG = {
 
 const { oauthUrl, judilibreBase, legifranceBase } = CONFIG[ENV];
 
-// ---------------------------------------------------------------------
-// Gestion du token OAuth2 (inchangé)
-// ---------------------------------------------------------------------
 let cachedToken = null;
 let tokenExpiresAt = 0;
 
@@ -68,9 +65,6 @@ async function getAccessToken() {
   return cachedToken;
 }
 
-// ---------------------------------------------------------------------
-// Fonction utilitaire : un seul appel à Judilibre /search
-// ---------------------------------------------------------------------
 async function chercherJudilibre({ query, jurisdiction, page = 0, page_size = 10 }) {
   const token = await getAccessToken();
   const params = new URLSearchParams({
@@ -108,10 +102,6 @@ function formaterDecision(d) {
   };
 }
 
-// ---------------------------------------------------------------------
-// Récupération PAGINÉE de toutes les décisions RGPD, sur plusieurs
-// formulations de requête, avec déduplication par id.
-// ---------------------------------------------------------------------
 const REQUETES_RGPD = [
   'RGPD',
   'données personnelles',
@@ -120,7 +110,7 @@ const REQUETES_RGPD = [
 ];
 const TAILLE_PAGE = 10;
 const PAUSE_MS = 250;
-const MAX_PAGES = 20; // plafond de sécurité : 20 pages x 10 = 200 décisions max par requête
+const MAX_PAGES = 20;
 
 let cacheDecisions = [];
 let derniereMiseAJour = null;
@@ -166,50 +156,11 @@ async function rafraichirCacheRGPD() {
   derniereMiseAJour = new Date().toISOString();
   console.log(`[${derniereMiseAJour}] Cache RGPD rafraîchi : ${cacheDecisions.length} décisions uniques`);
   rafraichissementEnCours = false;
-} {
-  if (rafraichissementEnCours) return;
-  rafraichissementEnCours = true;
-
-  const vus = new Map();
-
-  for (const query of REQUETES_RGPD) {
-    let page = 0;
-    let total = Infinity;
-
-    while (page * TAILLE_PAGE < total) {
-      try {
-        const data = await chercherJudilibre({ query, page, page_size: TAILLE_PAGE });
-        total = data.total || 0;
-        const resultats = data.results || [];
-
-        resultats.forEach((d) => {
-          if (!vus.has(d.id)) {
-            vus.set(d.id, formaterDecision(d));
-          }
-        });
-
-        if (resultats.length === 0) break;
-        page++;
-        await pause(PAUSE_MS);
-      } catch (err) {
-        console.error(`Erreur Judilibre pour la requête "${query}" (page ${page}) :`, err.message);
-        break;
-      }
-    }
-  }
-
-  cacheDecisions = Array.from(vus.values());
-  derniereMiseAJour = new Date().toISOString();
-  console.log(`[${derniereMiseAJour}] Cache RGPD rafraîchi : ${cacheDecisions.length} décisions uniques`);
-  rafraichissementEnCours = false;
 }
 
 cron.schedule('0 */6 * * *', rafraichirCacheRGPD);
 rafraichirCacheRGPD();
 
-// ---------------------------------------------------------------------
-// Route 1 — Recherche de jurisprudence via Judilibre
-// ---------------------------------------------------------------------
 app.get('/api/jurisprudence', async (req, res) => {
   try {
     const { query = '', jurisdiction, page = 0, page_size = 10, live } = req.query;
@@ -231,17 +182,11 @@ app.get('/api/jurisprudence', async (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------------
-// Forcer manuellement un rafraîchissement complet du cache
-// ---------------------------------------------------------------------
 app.post('/api/jurisprudence/refresh', async (req, res) => {
   await rafraichirCacheRGPD();
   res.json({ ok: true, total: cacheDecisions.length, derniere_maj: derniereMiseAJour });
 });
 
-// ---------------------------------------------------------------------
-// Route 2 — Récupération d'un article de loi via Légifrance (inchangé)
-// ---------------------------------------------------------------------
 app.get('/api/texte/:legiartiId', async (req, res) => {
   try {
     const token = await getAccessToken();
@@ -272,9 +217,6 @@ app.get('/api/texte/:legiartiId', async (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------------
-// Route 3 — Recherche plein texte Légifrance (inchangé)
-// ---------------------------------------------------------------------
 app.post('/api/textes/recherche', async (req, res) => {
   try {
     const { motCle, fond = 'CODE_DATE' } = req.body;
