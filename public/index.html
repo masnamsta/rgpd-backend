@@ -328,7 +328,7 @@ const boite = document.getElementById('caseGrid');
 boite.innerHTML = '<p class="mono" style="color:var(--red);font-size:13px;">Impossible de contacter le serveur pour le moment. Réessaie dans une minute (le serveur gratuit met parfois du temps à se réveiller).</p>';
 console.error(erreur);
 });
-const buttons = document.querySelectorAll('#filters button');
+const buttons = document.querySelectorAll('.filters button');
 buttons.forEach(btn=>{
 btn.addEventListener('click', ()=>{
 buttons.forEach(b=>b.classList.remove('active'));
