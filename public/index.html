@@ -120,7 +120,7 @@ section{padding:46px 0;}
 <h2>Le RGPD <em>se lit</em>,<br>il se plaide, il s'écrit.</h2>
 <p class="lead">Un dossier de veille sur le règlement général sur la protection des données&nbsp;: décisions de la CJUE, de la Cour de cassation et de la CNIL, doctrine des praticiens, et textes de référence, compilés pour la pratique quotidienne.</p>
 <div class="hero-meta">
-<div><strong>5</strong>fiches de jurisprudence</div>
+<div><strong id="compteurFiches">5</strong>fiches de jurisprudence</div>
 <div><strong>4</strong>notes de doctrine</div>
 <div><strong>CJUE · Cass. · CNIL</strong>juridictions suivies</div>
 </div>
@@ -186,7 +186,7 @@ section{padding:46px 0;}
 <h3>Jurisprudence</h3>
 <p class="section-note">Fiches d\'arrêt classées par juridiction, façon dossier de plaidoirie.</p>
 </div>
-<span class="tag">05 décisions</span>
+<span class="tag"><span id="compteurTag">05</span> décisions</span>
 </div>
 <div class="filters" id="filters">
 <button class="active" data-f="all">Toutes</button>
@@ -302,8 +302,7 @@ const dateMaj = new Date(donnees.derniere_maj);
 const dateFormatee = dateMaj.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 document.querySelector('.eyebrow').innerHTML = `<span class="dot"></span>Mise à jour du ${dateFormatee}`;
 }
-const boite = document.getElementById('caseGrid');
-boite.innerHTML = '';
+const boite = document.getElementById('caseGrid'); boite.innerHTML = ''; const nbResultats = (donnees.results || []).length; document.getElementById('compteurFiches').textContent = nbResultats; document.getElementById('compteurTag').textContent = String(nbResultats).padStart(2, '0');
 if (!donnees.results || donnees.results.length === 0) {
 boite.innerHTML = '<p class="mono" style="color:var(--ink-soft);font-size:13px;">Aucune décision trouvée pour le moment.</p>';
 return;
