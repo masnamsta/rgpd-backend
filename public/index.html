@@ -100,7 +100,7 @@ section{padding:46px 0;}
 <header class="site">
 <div class="header-inner">
 <div class="brand">
-<div class="mark">RG<br>PD</div>
+<div class="mark" role="img" aria-label="Logo Dossier RGPD">RG<br>PD</div>
 <div class="brand-text">
 <h1>Dossier RGPD</h1>
 <p>Veille jurisprudence &amp; doctrine</p>
@@ -315,7 +315,7 @@ const fiche = document.createElement('div');
 fiche.className = 'case-card';
 fiche.dataset.court = court;
 fiche.innerHTML = `
-<div class="case-seal"><span>${libelle.slice(0,4).toUpperCase()}</span></div>
+<div class="case-seal" role="img" aria-label="Sceau ${libelle}"><span aria-hidden="true">${libelle.slice(0,4).toUpperCase()}</span></div>
 <div class="cite mono">${libelle} — ${decision.date || ''}</div>
 <h4>${decision.titre || ('Décision n° ' + (decision.numero || '?'))}</h4>
 <p>${(decision.themes || []).join(', ') || 'Résumé non disponible.'}</p>
