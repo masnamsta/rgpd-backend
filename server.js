@@ -11,9 +11,9 @@ const cors = require('cors');
 const cron = require('node-cron');
 
 const app = express();
+app.use(express.static('public'));
 app.use(cors());
 app.use(express.json());
-
 const ENV = process.env.PISTE_ENV || 'sandbox'; // 'sandbox' ou 'production'
 
 const CONFIG = {
