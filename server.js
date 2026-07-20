@@ -3,7 +3,8 @@
 //
 // AJOUT : un cache mémoire alimenté par une récupération PAGINÉE de TOUTES
 // les décisions Judilibre liées au RGPD, rafraîchi automatiquement via cron.
-// Les routes Légifrance et la logique OAuth2 d'origine sont inchangées.
+// CORRECTIF : gestion d'erreur isolée par requête, pour qu'un échec sur
+// une formulation (ex. erreur 416 Judilibre) n'annule plus tout le cache.
 
 require('dotenv').config();
 const express = require('express');
@@ -108,8 +109,8 @@ function formaterDecision(d) {
 }
 
 // ---------------------------------------------------------------------
-// NOUVEAU : récupération PAGINÉE de toutes les décisions RGPD, sur
-// plusieurs formulations de requête, avec déduplication par id.
+// Récupération PAGINÉE de toutes les décisions RGPD, sur plusieurs
+// formulations de requête, avec déduplication par id.
 // ---------------------------------------------------------------------
 const REQUETES_RGPD = [
   'RGPD',
@@ -132,14 +133,14 @@ async function rafraichirCacheRGPD() {
   if (rafraichissementEnCours) return;
   rafraichissementEnCours = true;
 
-  try {
-    const vus = new Map();
+  const vus = new Map();
 
-    for (const query of REQUETES_RGPD) {
-      let page = 0;
-      let total = Infinity;
+  for (const query of REQUETES_RGPD) {
+    let page = 0;
+    let total = Infinity;
 
-      while (page * TAILLE_PAGE < total) {
+    while (page * TAILLE_PAGE < total) {
+      try {
         const data = await chercherJudilibre({ query, page, page_size: TAILLE_PAGE });
         total = data.total || 0;
         const resultats = data.results || [];
@@ -153,17 +154,17 @@ async function rafraichirCacheRGPD() {
         if (resultats.length === 0) break;
         page++;
         await pause(PAUSE_MS);
+      } catch (err) {
+        console.error(`Erreur Judilibre pour la requête "${query}" (page ${page}) :`, err.message);
+        break;
       }
     }
-
-    cacheDecisions = Array.from(vus.values());
-    derniereMiseAJour = new Date().toISOString();
-    console.log(`[${derniereMiseAJour}] Cache RGPD rafraîchi : ${cacheDecisions.length} décisions uniques`);
-  } catch (err) {
-    console.error('Erreur lors du rafraîchissement du cache RGPD :', err.message);
-  } finally {
-    rafraichissementEnCours = false;
   }
+
+  cacheDecisions = Array.from(vus.values());
+  derniereMiseAJour = new Date().toISOString();
+  console.log(`[${derniereMiseAJour}] Cache RGPD rafraîchi : ${cacheDecisions.length} décisions uniques`);
+  rafraichissementEnCours = false;
 }
 
 cron.schedule('0 */6 * * *', rafraichirCacheRGPD);
@@ -194,7 +195,7 @@ app.get('/api/jurisprudence', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------
-// NOUVEAU — Forcer manuellement un rafraîchissement complet du cache
+// Forcer manuellement un rafraîchissement complet du cache
 // ---------------------------------------------------------------------
 app.post('/api/jurisprudence/refresh', async (req, res) => {
   await rafraichirCacheRGPD();
