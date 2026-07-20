@@ -120,6 +120,7 @@ const REQUETES_RGPD = [
 ];
 const TAILLE_PAGE = 10;
 const PAUSE_MS = 250;
+const MAX_PAGES = 20; // plafond de sécurité : 20 pages x 10 = 200 décisions max par requête
 
 let cacheDecisions = [];
 let derniereMiseAJour = null;
@@ -130,6 +131,42 @@ function pause(ms) {
 }
 
 async function rafraichirCacheRGPD() {
+  if (rafraichissementEnCours) return;
+  rafraichissementEnCours = true;
+
+  const vus = new Map();
+
+  for (const query of REQUETES_RGPD) {
+    let page = 0;
+    let total = Infinity;
+
+    while (page * TAILLE_PAGE < total && page < MAX_PAGES) {
+      try {
+        const data = await chercherJudilibre({ query, page, page_size: TAILLE_PAGE });
+        total = data.total || 0;
+        const resultats = data.results || [];
+
+        resultats.forEach((d) => {
+          if (!vus.has(d.id)) {
+            vus.set(d.id, formaterDecision(d));
+          }
+        });
+
+        if (resultats.length === 0) break;
+        page++;
+        await pause(PAUSE_MS);
+      } catch (err) {
+        console.error(`Erreur Judilibre pour la requête "${query}" (page ${page}) :`, err.message);
+        break;
+      }
+    }
+  }
+
+  cacheDecisions = Array.from(vus.values());
+  derniereMiseAJour = new Date().toISOString();
+  console.log(`[${derniereMiseAJour}] Cache RGPD rafraîchi : ${cacheDecisions.length} décisions uniques`);
+  rafraichissementEnCours = false;
+} {
   if (rafraichissementEnCours) return;
   rafraichissementEnCours = true;
 
