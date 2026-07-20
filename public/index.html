@@ -277,60 +277,60 @@ Les décisions et sanctions présentées ici sont réelles et sourcées publique
 </div>
 </footer>
 <script>
-const ADRESSE_SERVEUR = \'https://rgpd-backend.onrender.com\';
+const ADRESSE_SERVEUR = 'https://rgpd-backend.onrender.com';
 const NOMS_JURIDICTIONS = {
-\'cc\': \'Cour de cassation\',
-\'cjue\': \'CJUE\',
-\'ca\': "Cour d\'appel"
+'cc': 'Cour de cassation',
+'cjue': 'CJUE',
+'ca': "Cour d'appel"
 };
 function deviner_court(juridiction){
-const j = (juridiction || \'\').toLowerCase();
-if (j === \'cjue\' || j.includes(\'cour de justice\')) return \'cjue\';
-if (j === \'cc\' || j.includes(\'cass\')) return \'cass\';
-if (j === \'ca\' || j.includes(\'appel\')) return \'ca\';
-return \'autre\';
+const j = (juridiction || '').toLowerCase();
+if (j === 'cjue' || j.includes('cour de justice')) return 'cjue';
+if (j === 'cc' || j.includes('cass')) return 'cass';
+if (j === 'ca' || j.includes('appel')) return 'ca';
+return 'autre';
 }
 function nom_lisible(juridiction){
-const j = (juridiction || \'\').toLowerCase();
-return NOMS_JURIDICTIONS[j] || (juridiction || \'Décision\').toUpperCase();
+const j = (juridiction || '').toLowerCase();
+return NOMS_JURIDICTIONS[j] || (juridiction || 'Décision').toUpperCase();
 }
 fetch(`${ADRESSE_SERVEUR}/api/jurisprudence?query=RGPD`)
 .then(reponse => reponse.json())
 .then(donnees => {
-const boite = document.getElementById(\'caseGrid\');
-boite.innerHTML = \'\';
+const boite = document.getElementById('caseGrid');
+boite.innerHTML = '';
 if (!donnees.results || donnees.results.length === 0) {
-boite.innerHTML = \'<p class="mono" style="color:var(--ink-soft);font-size:13px;">Aucune décision trouvée pour le moment.</p>\';
+boite.innerHTML = '<p class="mono" style="color:var(--ink-soft);font-size:13px;">Aucune décision trouvée pour le moment.</p>';
 return;
 }
 donnees.results.forEach(decision => {
 const court = deviner_court(decision.juridiction);
 const libelle = nom_lisible(decision.juridiction);
-const fiche = document.createElement(\'div\');
-fiche.className = \'case-card\';
+const fiche = document.createElement('div');
+fiche.className = 'case-card';
 fiche.dataset.court = court;
 fiche.innerHTML = `
 <div class="case-seal"><span>${libelle.slice(0,4).toUpperCase()}</span></div>
-<div class="cite mono">${libelle} — ${decision.date || \'\'}</div>
-<h4>${decision.titre || (\'Décision n° \' + (decision.numero || \'?\'))}</h4>
-<p>${(decision.themes || []).join(\', \') || \'Résumé non disponible.\'}</p>
+<div class="cite mono">${libelle} — ${decision.date || ''}</div>
+<h4>${decision.titre || ('Décision n° ' + (decision.numero || '?'))}</h4>
+<p>${(decision.themes || []).join(', ') || 'Résumé non disponible.'}</p>
 `;
 boite.appendChild(fiche);
 });
 })
 .catch(erreur => {
-const boite = document.getElementById(\'caseGrid\');
-boite.innerHTML = \'<p class="mono" style="color:var(--red);font-size:13px;">Impossible de contacter le serveur pour le moment. Réessaie dans une minute (le serveur gratuit met parfois du temps à se réveiller).</p>\';
+const boite = document.getElementById('caseGrid');
+boite.innerHTML = '<p class="mono" style="color:var(--red);font-size:13px;">Impossible de contacter le serveur pour le moment. Réessaie dans une minute (le serveur gratuit met parfois du temps à se réveiller).</p>';
 console.error(erreur);
 });
-const buttons = document.querySelectorAll(\'#filters button\');
+const buttons = document.querySelectorAll('#filters button');
 buttons.forEach(btn=>{
-btn.addEventListener(\'click\', ()=>{
-buttons.forEach(b=>b.classList.remove(\'active\'));
-btn.classList.add(\'active\');
+btn.addEventListener('click', ()=>{
+buttons.forEach(b=>b.classList.remove('active'));
+btn.classList.add('active');
 const f = btn.dataset.f;
-document.querySelectorAll(\'.case-card\').forEach(c=>{
-c.style.display = (f===\'all\' || c.dataset.court===f) ? \'\' : \'none\';
+document.querySelectorAll('.case-card').forEach(c=>{
+c.style.display = (f==='all' || c.dataset.court===f) ? '' : 'none';
 });
 });
 });
