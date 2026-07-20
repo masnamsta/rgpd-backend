@@ -30,7 +30,7 @@ header.site{position:sticky;top:0;z-index:50;background:var(--paper);border-bott
 nav.tabs{display:flex;gap:2px;}
 nav.tabs a{font-family:'IBM Plex Mono';font-size:12px;letter-spacing:0.5px;text-transform:uppercase;padding:9px 14px;text-decoration:none;color:var(--ink-soft);border-bottom:2px solid transparent;transition:color .15s, border-color .15s;}
 nav.tabs a:hover{color:var(--navy);border-color:var(--line);}
-@media (max-width:780px){nav.tabs{display:none;}}
+@media (max-width:780px){nav.tabs{display:none;flex-direction:column;position:absolute;top:100%;left:0;right:0;background:var(--paper);border-bottom:1px solid var(--line);padding:10px 20px;} nav.tabs.open{display:flex;} #menuMobile{display:block !important;}}
 .hero{background:var(--navy);color:#EDEAE1;padding:72px 0 56px;position:relative;overflow:hidden;}
 .hero::before{content:"";position:absolute;inset:0;background-image:repeating-linear-gradient(180deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 1px, transparent 1px, transparent 34px);pointer-events:none;}
 .hero-inner{max-width:1180px;margin:0 auto;padding:0 32px;position:relative;}
@@ -106,6 +106,7 @@ section{padding:46px 0;}
 <p>Veille jurisprudence &amp; doctrine</p>
 </div>
 </div>
+<button id="menuMobile" class="mono" style="display:none;background:none;border:1px solid var(--line);padding:8px 12px;font-size:20px;cursor:pointer;color:var(--navy);">☰</button> 
 <nav class="tabs">
 <a href="#actualites">Actualités</a>
 <a href="#jurisprudence">Jurisprudence</a>
@@ -327,6 +328,7 @@ const boite = document.getElementById('caseGrid');
 boite.innerHTML = '<p class="mono" style="color:var(--red);font-size:13px;">Impossible de contacter le serveur pour le moment. Réessaie dans une minute (le serveur gratuit met parfois du temps à se réveiller).</p>';
 console.error(erreur);
 });
+document.getElementById('menuMobile').addEventListener('click', ()=>{ document.querySelector('nav.tabs').classList.toggle('open'); });
 const buttons = document.querySelectorAll('.filters button');
 buttons.forEach(btn=>{
 btn.addEventListener('click', ()=>{
