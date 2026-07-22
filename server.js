@@ -207,7 +207,10 @@ function extraireDateTitre(titre) {
 function formaterDecisionLegifrance(d, fond) {
   const t = (d.titles && d.titles[0]) || {};
   const titre = t.title || '';
-  const resume = (d.resumePrincipal || []).join(' ');
+  let resume = (d.resumePrincipal || []).join(' ');
+  if (!resume && d.text) {
+    resume = d.text.replace(/<[^>]+>/g, '').replace(/\[\.\.\.\]/g, ' ').trim();
+  }
   return {
     id: t.id || d.id,
     juridiction: fond === 'CETAT' ? 'ce' : 'cnil',
@@ -221,7 +224,6 @@ function formaterDecisionLegifrance(d, fond) {
     url: `https://www.legifrance.gouv.fr/${fond === 'CETAT' ? 'ceta' : 'cnil'}/id/${t.id || d.id}`,
   };
 }
-
 let cacheLegifrance = [];
 
 async function rafraichirCacheLegifrance() {
