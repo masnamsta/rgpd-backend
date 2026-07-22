@@ -215,7 +215,7 @@ function formaterDecisionLegifrance(d, fond) {
     numero: t.id || null,
     date: d.datePublication ? d.datePublication.slice(0, 10) : extraireDateTitre(titre),
     titre: titre,
-    themes: [],
+    themes: resume ? [resume.slice(0, 220).trim() + (resume.length > 220 ? '…' : '')] : [],
     themesRgpd: classifierDecision({ summary: `${titre} ${resume}` }),
     source: 'legifrance',
     url: `https://www.legifrance.gouv.fr/${fond === 'CETAT' ? 'ceta' : 'cnil'}/id/${t.id || d.id}`,
