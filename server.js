@@ -173,7 +173,39 @@ async function rafraichirCacheRGPD() {
   console.log(`[${derniereMiseAJour}] Cache RGPD rafraîchi : ${cacheDecisions.length} décisions uniques`);
   rafraichissementEnCours = false;
 }
+async function chercherLegifrance(fond, motCle, page = 1) {
+  const token = await getAccessToken();
+  const body = {
+    fond,
+    recherche: {
+      champs: [{ criteres: [{ valeur: motCle, proximite: 2, operateur: 'ET', typeRecherche: 'UN_DES_MOTS' }], operateur: 'ET', typeChamp: 'ALL' }],
+      pageSize: 5,
+      pageNumber: page,
+      operateur: 'ET',
+      typePagination: 'DEFAUT',
+      sort: 'PERTINENCE',
+    },
+  };
+  const apiRes = await fetch(`${legifranceBase}/search`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!apiRes.ok) {
+    const text = await apiRes.text();
+    throw new Error(`Erreur Légifrance (${apiRes.status}): ${text}`);
+  }
+  return apiRes.json();
+}
 
+app.get('/api/test-legifrance/:fond', async (req, res) => {
+  try {
+    const data = await chercherLegifrance(req.params.fond, 'données personnelles');
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 cron.schedule('0 */6 * * *', rafraichirCacheRGPD);
 rafraichirCacheRGPD();
 
