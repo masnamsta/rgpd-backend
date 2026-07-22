@@ -174,13 +174,13 @@ cacheDecisions = [...Array.from(vus.values()).map(d => ({ ...d, source: 'judilib
   console.log(`[${derniereMiseAJour}] Cache RGPD rafraîchi : ${cacheDecisions.length} décisions uniques`);
   rafraichissementEnCours = false;
 }
-async function chercherLegifrance(fond, motCle, page = 1) {
+async function chercherLegifrance(fond, motCle, page = 1, pageSize = 20) {
   const token = await getAccessToken();
   const body = {
     fond,
     recherche: {
       champs: [{ criteres: [{ valeur: motCle, proximite: 2, operateur: 'ET', typeRecherche: 'UN_DES_MOTS' }], operateur: 'ET', typeChamp: 'ALL' }],
-      pageSize: 20,
+      pageSize: pageSize,
       pageNumber: page,
       operateur: 'ET',
       typePagination: 'DEFAUT',
@@ -226,6 +226,8 @@ function formaterDecisionLegifrance(d, fond) {
 }
 let cacheLegifrance = [];
 
+const TAILLE_PAGE_LEGIFRANCE = 20;
+
 async function rafraichirCacheLegifrance() {
   const requetesRGPD = ['données personnelles', 'RGPD'];
   const fonds = ['CETAT', 'CNIL'];
@@ -233,16 +235,27 @@ async function rafraichirCacheLegifrance() {
 
   for (const fond of fonds) {
     for (const motCle of requetesRGPD) {
-      try {
-        const data = await chercherLegifrance(fond, motCle);
-        const resultats = data.results || [];
-        resultats.forEach((d) => {
-          const f = formaterDecisionLegifrance(d, fond);
-          if (f.id && !vus.has(f.id)) vus.set(f.id, f);
-        });
-        await pause(PAUSE_MS);
-      } catch (err) {
-        console.error(`Erreur Légifrance (${fond}, "${motCle}") :`, err.message);
+      let page = 1;
+      let total = Infinity;
+
+      while ((page - 1) * TAILLE_PAGE_LEGIFRANCE < total && page <= MAX_PAGES) {
+        try {
+          const data = await chercherLegifrance(fond, motCle, page, TAILLE_PAGE_LEGIFRANCE);
+          total = data.totalResultNumber || 0;
+          const resultats = data.results || [];
+
+          resultats.forEach((d) => {
+            const f = formaterDecisionLegifrance(d, fond);
+            if (f.id && !vus.has(f.id)) vus.set(f.id, f);
+          });
+
+          if (resultats.length === 0) break;
+          page++;
+          await pause(PAUSE_MS);
+        } catch (err) {
+          console.error(`Erreur Légifrance (${fond}, "${motCle}", page ${page}) :`, err.message);
+          break;
+        }
       }
     }
   }
