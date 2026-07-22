@@ -60,6 +60,10 @@ section{padding:64px 0;}
 .filters button{font-family:'IBM Plex Mono';font-size:11.5px;letter-spacing:0.5px;text-transform:uppercase;padding:7px 14px;border:1px solid var(--line);background:transparent;color:var(--ink-soft);border-radius:2px;cursor:pointer;transition:all .15s;}
 .filters button:hover{border-color:var(--navy);color:var(--navy);}
 .filters button.active{background:var(--navy);color:#EDEAE1;border-color:var(--navy);}
+.filters-theme{display:flex;gap:8px;margin-bottom:30px;flex-wrap:wrap;}
+.filters-theme button{font-family:'IBM Plex Mono';font-size:11.5px;letter-spacing:0.5px;text-transform:uppercase;padding:7px 14px;border:1px solid var(--line);background:transparent;color:var(--ink-soft);border-radius:2px;cursor:pointer;transition:all .15s;}
+.filters-theme button:hover{border-color:var(--navy);color:var(--navy);}
+.filters-theme button.active{background:var(--navy);color:#EDEAE1;border-color:var(--navy);}
 .case-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px;}
 .case-card{background:var(--paper);border:1px solid var(--line);position:relative;padding:26px 24px 22px 30px;}
 .case-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:8px;background-image:radial-gradient(circle, var(--paper-raised) 2.4px, transparent 2.6px);background-size:8px 14px;background-position:0 6px;}
@@ -195,6 +199,16 @@ section{padding:46px 0;}
 <button data-f="cass">Cour de cassation</button>
 <button data-f="ca">Cour d\'appel</button>
 </div>
+<div class="filters-theme" id="filtersTheme">
+<button class="active" data-t="all">Tous les thèmes</button>
+<button data-t="violations">Violations de données</button>
+<button data-t="sous_traitance">Sous-traitance</button>
+<button data-t="transferts">Transferts</button>
+<button data-t="securite">Sécurité</button>
+<button data-t="droits_personnes">Droits des personnes</button>
+<button data-t="ia">IA</button>
+<button data-t="autre">Autre</button>
+</div>
 <div class="case-grid" id="caseGrid">
 <p class="mono" style="color:var(--ink-soft);font-size:13px;">Chargement des dernières décisions…</p>
 </div>
@@ -314,6 +328,7 @@ const libelle = nom_lisible(decision.juridiction);
 const fiche = document.createElement('div');
 fiche.className = 'case-card';
 fiche.dataset.court = court;
+fiche.dataset.themes = (decision.themesRgpd || []).join(',');
 fiche.innerHTML = `
 <div class="case-seal" role="img" aria-label="Sceau ${libelle}"><span aria-hidden="true">${libelle.slice(0,4).toUpperCase()}</span></div>
 <div class="cite mono">${libelle} — ${decision.date || ''}</div>
@@ -329,16 +344,34 @@ boite.innerHTML = '<p class="mono" style="color:var(--red);font-size:13px;">Impo
 console.error(erreur);
 });
 document.getElementById('menuMobile').addEventListener('click', ()=>{ document.querySelector('nav.tabs').classList.toggle('open'); });
-const buttons = document.querySelectorAll('.filters button');
-buttons.forEach(btn=>{
-btn.addEventListener('click', ()=>{
-buttons.forEach(b=>b.classList.remove('active'));
-btn.classList.add('active');
-const f = btn.dataset.f;
-document.querySelectorAll('.case-card').forEach(c=>{
-c.style.display = (f==='all' || c.dataset.court===f) ? '' : 'none';
+let filtreJuridictionActif = 'all';
+let filtreThemeActif = 'all';
+
+function appliquerFiltres() {
+  document.querySelectorAll('.case-card').forEach(c => {
+    const okJuridiction = (filtreJuridictionActif === 'all' || c.dataset.court === filtreJuridictionActif);
+    const themesCarte = (c.dataset.themes || '').split(',');
+    const okTheme = (filtreThemeActif === 'all' || themesCarte.includes(filtreThemeActif));
+    c.style.display = (okJuridiction && okTheme) ? '' : 'none';
+  });
+}
+
+document.querySelectorAll('.filters button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filtreJuridictionActif = btn.dataset.f;
+    appliquerFiltres();
+  });
 });
-});
+
+document.querySelectorAll('.filters-theme button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filters-theme button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filtreThemeActif = btn.dataset.t;
+    appliquerFiltres();
+  });
 });
 </script>
 </body>
