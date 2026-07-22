@@ -328,7 +328,12 @@ if (!donnees.results || donnees.results.length === 0) {
 boite.innerHTML = '<p class="mono" style="color:var(--ink-soft);font-size:13px;">Aucune décision trouvée pour le moment.</p>';
 return;
 }
-donnees.results.forEach(decision => {
+const resultatsTries = [...donnees.results].sort((a, b) => {
+const dateA = a.date ? new Date(a.date).getTime() : 0;
+const dateB = b.date ? new Date(b.date).getTime() : 0;
+return dateB - dateA;
+});
+resultatsTries.forEach(decision => {
 const court = deviner_court(decision.juridiction);
 const libelle = nom_lisible(decision.juridiction);
 const fiche = document.createElement('div');
