@@ -197,7 +197,9 @@ section{padding:46px 0;}
 <button class="active" data-f="all">Toutes</button>
 <button data-f="cjue">CJUE</button>
 <button data-f="cass">Cour de cassation</button>
-<button data-f="ca">Cour d\'appel</button>
+<button data-f="ca">Cour d'appel</button>
+<button data-f="ce">Conseil d'État</button>
+<button data-f="cnil">CNIL</button>
 </div>
 <div class="filters-theme" id="filtersTheme">
 <button class="active" data-t="all">Tous les thèmes</button>
@@ -296,13 +298,17 @@ const ADRESSE_SERVEUR = 'https://rgpd-backend.onrender.com';
 const NOMS_JURIDICTIONS = {
 'cc': 'Cour de cassation',
 'cjue': 'CJUE',
-'ca': "Cour d'appel"
+'ca': "Cour d'appel",
+'ce': "Conseil d'État",
+'cnil': 'CNIL'
 };
 function deviner_court(juridiction){
 const j = (juridiction || '').toLowerCase();
 if (j === 'cjue' || j.includes('cour de justice')) return 'cjue';
 if (j === 'cc' || j.includes('cass')) return 'cass';
 if (j === 'ca' || j.includes('appel')) return 'ca';
+if (j === 'ce') return 'ce';
+if (j === 'cnil') return 'cnil';
 return 'autre';
 }
 function nom_lisible(juridiction){
