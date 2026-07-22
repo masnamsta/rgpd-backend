@@ -123,9 +123,24 @@ const REQUETES_RGPD = [
   'données personnelles',
   'protection des données',
   "règlement général sur la protection des données",
+  'données à caractère personnel',
+  'consentement au traitement',
+  "droit à l'effacement",
+  "droit à l'oubli",
+  "droit d'accès aux données",
+  'violation de données',
+  'vidéosurveillance',
+  'cookies',
+  'sous-traitant',
+  'transfert de données hors UE',
+  'délégué à la protection des données',
+  'CNIL',
+  'traitement automatisé',
+  'biométrie',
+  'géolocalisation',
 ];
 const TAILLE_PAGE = 10;
-const PAUSE_MS = 250;
+const PAUSE_MS = 350;
 const MAX_PAGES = 20;
 
 let cacheDecisions = [];
@@ -229,7 +244,21 @@ let cacheLegifrance = [];
 const TAILLE_PAGE_LEGIFRANCE = 20;
 
 async function rafraichirCacheLegifrance() {
-  const requetesRGPD = ['données personnelles', 'RGPD'];
+  const requetesRGPD = [
+  'données personnelles',
+  'RGPD',
+  'données à caractère personnel',
+  'protection des données',
+  "droit à l'effacement",
+  'consentement au traitement',
+  'violation de données',
+  'vidéosurveillance',
+  'sanction CNIL',
+  'délégué à la protection des données',
+  'transfert de données hors Union européenne',
+  'sous-traitant',
+  'biométrie',
+];
   const fonds = ['CETAT', 'CNIL'];
   const vus = new Map();
 
