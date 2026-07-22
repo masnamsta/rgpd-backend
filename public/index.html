@@ -340,6 +340,7 @@ fiche.innerHTML = `
 <div class="cite mono">${libelle} — ${decision.date || ''}</div>
 <h4>${decision.titre || ('Décision n° ' + (decision.numero || '?'))}</h4>
 <p>${(decision.themes || []).join(', ') || 'Résumé non disponible.'}</p>
+${decision.url ? `<div class="art"><a href="${decision.url}" target="_blank" rel="noopener" style="color:var(--red);text-decoration:underline;">Lire la décision intégrale ↗</a></div>` : ''}
 `;
 boite.appendChild(fiche);
 });
