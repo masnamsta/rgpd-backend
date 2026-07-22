@@ -168,7 +168,8 @@ async function rafraichirCacheRGPD() {
     }
   }
 
-  cacheDecisions = Array.from(vus.values());
+await rafraichirCacheLegifrance();
+cacheDecisions = [...Array.from(vus.values()).map(d => ({ ...d, source: 'judilibre' })), ...cacheLegifrance];
   derniereMiseAJour = new Date().toISOString();
   console.log(`[${derniereMiseAJour}] Cache RGPD rafraîchi : ${cacheDecisions.length} décisions uniques`);
   rafraichissementEnCours = false;
@@ -179,7 +180,7 @@ async function chercherLegifrance(fond, motCle, page = 1) {
     fond,
     recherche: {
       champs: [{ criteres: [{ valeur: motCle, proximite: 2, operateur: 'ET', typeRecherche: 'UN_DES_MOTS' }], operateur: 'ET', typeChamp: 'ALL' }],
-      pageSize: 5,
+      pageSize: 20,
       pageNumber: page,
       operateur: 'ET',
       typePagination: 'DEFAUT',
@@ -198,14 +199,54 @@ async function chercherLegifrance(fond, motCle, page = 1) {
   return apiRes.json();
 }
 
-app.get('/api/test-legifrance/:fond', async (req, res) => {
-  try {
-    const data = await chercherLegifrance(req.params.fond, 'données personnelles');
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+function extraireDateTitre(titre) {
+  const m = (titre || '').match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+}
+
+function formaterDecisionLegifrance(d, fond) {
+  const t = (d.titles && d.titles[0]) || {};
+  const titre = t.title || '';
+  const resume = (d.resumePrincipal || []).join(' ');
+  return {
+    id: t.id || d.id,
+    juridiction: fond === 'CETAT' ? 'ce' : 'cnil',
+    chambre: null,
+    numero: t.id || null,
+    date: d.datePublication ? d.datePublication.slice(0, 10) : extraireDateTitre(titre),
+    titre: titre,
+    themes: [],
+    themesRgpd: classifierDecision({ summary: `${titre} ${resume}` }),
+    source: 'legifrance',
+    url: `https://www.legifrance.gouv.fr/${fond === 'CETAT' ? 'ceta' : 'cnil'}/id/${t.id || d.id}`,
+  };
+}
+
+let cacheLegifrance = [];
+
+async function rafraichirCacheLegifrance() {
+  const requetesRGPD = ['données personnelles', 'RGPD'];
+  const fonds = ['CETAT', 'CNIL'];
+  const vus = new Map();
+
+  for (const fond of fonds) {
+    for (const motCle of requetesRGPD) {
+      try {
+        const data = await chercherLegifrance(fond, motCle);
+        const resultats = data.results || [];
+        resultats.forEach((d) => {
+          const f = formaterDecisionLegifrance(d, fond);
+          if (f.id && !vus.has(f.id)) vus.set(f.id, f);
+        });
+        await pause(PAUSE_MS);
+      } catch (err) {
+        console.error(`Erreur Légifrance (${fond}, "${motCle}") :`, err.message);
+      }
+    }
   }
-});
+  cacheLegifrance = Array.from(vus.values());
+  console.log(`Cache Légifrance rafraîchi : ${cacheLegifrance.length} décisions`);
+}
 cron.schedule('0 */6 * * *', rafraichirCacheRGPD);
 rafraichirCacheRGPD();
 
