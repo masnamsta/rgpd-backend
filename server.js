@@ -88,7 +88,22 @@ async function chercherJudilibre({ query, jurisdiction, page = 0, page_size = 10
 
   return apiRes.json();
 }
+const THEMES_RGPD = {
+  violations: ['violation', 'fuite de données', 'article 33', 'article 34', 'notification cnil'],
+  sous_traitance: ['sous-traitant', 'sous-traitance', 'article 28', 'responsable de traitement'],
+  transferts: ['transfert', 'pays tiers', 'clauses contractuelles types', 'hors union européenne'],
+  securite: ['mesure technique', 'chiffrement', 'authentification', 'accès non autorisé', 'sécurité des données'],
+  droits_personnes: ["droit d'accès", "droit à l'oubli", "droit d'opposition", 'rectification', 'effacement'],
+  ia: ['intelligence artificielle', 'algorithme', 'traitement automatisé', 'décision automatisée'],
+};
 
+function classifierDecision(d) {
+  const texte = `${d.summary || ''} ${(d.themes || []).join(' ')}`.toLowerCase();
+  const detectes = Object.entries(THEMES_RGPD)
+    .filter(([, mots]) => mots.some((m) => texte.includes(m)))
+    .map(([cle]) => cle);
+  return detectes.length ? detectes : ['autre'];
+}
 function formaterDecision(d) {
   return {
     id: d.id,
@@ -98,6 +113,7 @@ function formaterDecision(d) {
     date: d.decision_date,
     titre: d.summary || d.solution || null,
     themes: d.themes || [],
+    themesRgpd: classifierDecision(d),
     url: `https://www.courdecassation.fr/decision/${d.id}`,
   };
 }
