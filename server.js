@@ -184,7 +184,8 @@ async function rafraichirCacheRGPD() {
   }
 
 await rafraichirCacheLegifrance();
-cacheDecisions = [...Array.from(vus.values()).map(d => ({ ...d, source: 'judilibre' })), ...cacheLegifrance];
+await rafraichirCacheCJUE();
+cacheDecisions = [...Array.from(vus.values()).map(d => ({ ...d, source: 'judilibre' })), ...cacheLegifrance, ...cacheCJUE];
   derniereMiseAJour = new Date().toISOString();
   console.log(`[${derniereMiseAJour}] Cache RGPD rafraîchi : ${cacheDecisions.length} décisions uniques`);
   rafraichissementEnCours = false;
@@ -290,6 +291,79 @@ async function rafraichirCacheLegifrance() {
   }
   cacheLegifrance = Array.from(vus.values());
   console.log(`Cache Légifrance rafraîchi : ${cacheLegifrance.length} décisions`);
+}
+function extraireNumeroAffaire(titre) {
+  const segments = titre.split('#');
+  const dernier = segments[segments.length - 1] || '';
+  return dernier.replace(/^Affaire[s]?\s*(jointes)?\s*/i, '').replace('.', '').trim();
+}
+
+function formaterDecisionCJUE(b) {
+  const id = b.work.value;
+  const titreComplet = b.title.value;
+  const segments = titreComplet.split('#');
+  return {
+    id,
+    juridiction: 'cjue',
+    chambre: null,
+    numero: extraireNumeroAffaire(titreComplet),
+    date: b.date.value,
+    titre: segments[0] || titreComplet,
+    themes: segments[2] ? [segments[2].slice(0, 220).trim() + (segments[2].length > 220 ? '…' : '')] : [],
+    themesRgpd: classifierDecision({ summary: titreComplet }),
+    source: 'cjue',
+    url: id,
+  };
+}
+
+async function chercherCJUE(motCle) {
+  const sparqlQuery = `
+    PREFIX cdm: <http://publications.europa.eu/ontology/cdm#>
+    SELECT DISTINCT ?work ?title ?date WHERE {
+      ?work cdm:work_has_resource-type <http://publications.europa.eu/resource/authority/resource-type/CASE_LAW> .
+      ?work cdm:work_date_document ?date .
+      ?exp cdm:expression_belongs_to_work ?work .
+      ?exp cdm:expression_title ?title .
+      ?exp cdm:expression_uses_language <http://publications.europa.eu/resource/authority/language/FRA> .
+      FILTER(CONTAINS(LCASE(?title), LCASE("${motCle}")))
+    } ORDER BY DESC(?date) LIMIT 100
+  `;
+
+  const apiRes = await fetch('https://publications.europa.eu/webapi/rdf/sparql', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/sparql-results+json' },
+    body: new URLSearchParams({ query: sparqlQuery }),
+  });
+
+  if (!apiRes.ok) {
+    const text = await apiRes.text();
+    throw new Error(`Erreur CJUE (${apiRes.status}): ${text}`);
+  }
+
+  const data = await apiRes.json();
+  return data.results.bindings;
+}
+
+let cacheCJUE = [];
+
+async function rafraichirCacheCJUE() {
+  const requetesCJUE = ['protection des données', 'données à caractère personnel', 'RGPD'];
+  const vus = new Map();
+
+  for (const motCle of requetesCJUE) {
+    try {
+      const bindings = await chercherCJUE(motCle);
+      bindings.forEach((b) => {
+        const f = formaterDecisionCJUE(b);
+        if (!vus.has(f.id)) vus.set(f.id, f);
+      });
+      await pause(PAUSE_MS);
+    } catch (err) {
+      console.error(`Erreur CJUE ("${motCle}") :`, err.message);
+    }
+  }
+  cacheCJUE = Array.from(vus.values());
+  console.log(`Cache CJUE rafraîchi : ${cacheCJUE.length} décisions`);
 }
 cron.schedule('0 */6 * * *', rafraichirCacheRGPD);
 rafraichirCacheRGPD();
