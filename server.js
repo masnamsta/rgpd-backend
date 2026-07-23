@@ -391,10 +391,20 @@ app.get('/api/jurisprudence', async (req, res) => {
     const { query = '', jurisdiction, page = 0, page_size = 10, live } = req.query;
 
     if (!live) {
+      let resultatsFiltres = cacheDecisions;
+      const motCle = (query || '').toLowerCase().trim();
+      if (motCle && motCle !== 'rgpd') {
+        resultatsFiltres = cacheDecisions.filter(d =>
+          (d.titre && d.titre.toLowerCase().includes(motCle)) ||
+          (d.sommaire && d.sommaire.toLowerCase().includes(motCle)) ||
+          (d.numero && d.numero.toLowerCase().includes(motCle)) ||
+          (d.themesRgpd && d.themesRgpd.join(' ').toLowerCase().includes(motCle))
+        );
+      }
       return res.json({
-        total: cacheDecisions.length,
+        total: resultatsFiltres.length,
         derniere_maj: derniereMiseAJour,
-        results: cacheDecisions,
+        results: resultatsFiltres,
       });
     }
 
