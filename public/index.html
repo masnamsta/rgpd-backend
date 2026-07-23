@@ -353,8 +353,7 @@ ${decision.url ? `<div class="art"><a href="${decision.url}" target="_blank" rel
 `;
 boite.appendChild(fiche);
 });
-});
-}
+})
 .catch(erreur => {
 const boite = document.getElementById('caseGrid');
 boite.innerHTML = '<p class="mono" style="color:var(--red);font-size:13px;">Impossible de contacter le serveur pour le moment. Réessaie dans une minute (le serveur gratuit met parfois du temps à se réveiller).</p>';
