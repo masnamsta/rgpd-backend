@@ -318,7 +318,8 @@ function nom_lisible(juridiction){
 const j = (juridiction || '').toLowerCase();
 return NOMS_JURIDICTIONS[j] || (juridiction || 'Décision').toUpperCase();
 }
-fetch(`${ADRESSE_SERVEUR}/api/jurisprudence?query=RGPD`)
+function chargerDecisions(motCle = '') {
+fetch(`${ADRESSE_SERVEUR}/api/jurisprudence?query=${encodeURIComponent(motCle || 'RGPD')}`)
 .then(reponse => reponse.json())
 .then(donnees => {
 if (donnees.derniere_maj) {
@@ -352,7 +353,15 @@ ${decision.url ? `<div class="art"><a href="${decision.url}" target="_blank" rel
 `;
 boite.appendChild(fiche);
 });
-})
+});
+}
+chargerDecisions();
+let delaiRecherche;
+document.getElementById('rechercheMotCle').addEventListener('input', (e) => {
+clearTimeout(delaiRecherche);
+const valeur = e.target.value;
+delaiRecherche = setTimeout(() => chargerDecisions(valeur), 400);
+});
 .catch(erreur => {
 const boite = document.getElementById('caseGrid');
 boite.innerHTML = '<p class="mono" style="color:var(--red);font-size:13px;">Impossible de contacter le serveur pour le moment. Réessaie dans une minute (le serveur gratuit met parfois du temps à se réveiller).</p>';
