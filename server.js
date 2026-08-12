@@ -161,40 +161,57 @@ async function rafraichirCacheRGPD() {
   if (rafraichissementEnCours) return;
   rafraichissementEnCours = true;
 
-  const vus = new Map();
+  try {
+    const vus = new Map();
 
-  for (const query of REQUETES_RGPD) {
-    let page = 0;
-    let total = Infinity;
+    for (const query of REQUETES_RGPD) {
+      let page = 0;
+      let total = Infinity;
 
-    while (page * TAILLE_PAGE < total && page < MAX_PAGES) {
-      try {
-        const data = await chercherJudilibre({ query, page, page_size: TAILLE_PAGE });
-        total = data.total || 0;
-        const resultats = data.results || [];
+      while (page * TAILLE_PAGE < total && page < MAX_PAGES) {
+        try {
+          const data = await chercherJudilibre({ query, page, page_size: TAILLE_PAGE });
+          total = data.total || 0;
+          const resultats = data.results || [];
 
-        resultats.forEach((d) => {
-          if (!vus.has(d.id)) {
-            vus.set(d.id, formaterDecision(d));
-          }
-        });
+          resultats.forEach((d) => {
+            if (!vus.has(d.id)) {
+              vus.set(d.id, formaterDecision(d));
+            }
+          });
 
-        if (resultats.length === 0) break;
-        page++;
-        await pause(PAUSE_MS);
-      } catch (err) {
-        console.error(`Erreur Judilibre pour la requête "${query}" (page ${page}) :`, err.message);
-        break;
+          if (resultats.length === 0) break;
+          page++;
+          await pause(PAUSE_MS);
+        } catch (err) {
+          console.error(`Erreur Judilibre pour la requête "${query}" (page ${page}) :`, err.message);
+          break;
+        }
       }
     }
-  }
 
-await rafraichirCacheLegifrance();
-await rafraichirCacheCJUE();
-cacheDecisions = [...Array.from(vus.values()).map(d => ({ ...d, source: 'judilibre' })), ...cacheLegifrance, ...cacheCJUE];
-  derniereMiseAJour = new Date().toISOString();
-  console.log(`[${derniereMiseAJour}] Cache RGPD rafraîchi : ${cacheDecisions.length} décisions uniques`);
-  rafraichissementEnCours = false;
+    try {
+      await rafraichirCacheLegifrance();
+    } catch (err) {
+      console.error('Erreur globale rafraîchissement Légifrance :', err.message);
+    }
+
+    try {
+      await rafraichirCacheCJUE();
+    } catch (err) {
+      console.error('Erreur globale rafraîchissement CJUE :', err.message);
+    }
+
+    cacheDecisions = [
+      ...Array.from(vus.values()).map((d) => ({ ...d, source: 'judilibre' })),
+      ...cacheLegifrance,
+      ...cacheCJUE,
+    ];
+    derniereMiseAJour = new Date().toISOString();
+    console.log(`[${derniereMiseAJour}] Cache RGPD rafraîchi : ${cacheDecisions.length} décisions uniques`);
+  } finally {
+    rafraichissementEnCours = false;
+  }
 }
 async function chercherLegifrance(fond, motCle, page = 1, pageSize = 20) {
   const token = await getAccessToken();
