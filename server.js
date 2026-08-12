@@ -67,12 +67,16 @@ async function getAccessToken() {
 
 async function chercherJudilibre({ query, jurisdiction, page = 0, page_size = 10 }) {
   const token = await getAccessToken();
-  const params = new URLSearchParams({
-    query,
-    page,
-    page_size,
-    ...(jurisdiction ? { jurisdiction } : {}),
-  });
+  const params = new URLSearchParams();
+  params.append('query', query);
+  params.append('page', page);
+  params.append('page_size', page_size);
+
+  const jurisdictions = jurisdiction
+    ? (Array.isArray(jurisdiction) ? jurisdiction : [jurisdiction])
+    : ['cc', 'ca'];
+
+  jurisdictions.forEach((j) => params.append('jurisdiction', j));
 
   const apiRes = await fetch(`${judilibreBase}/search?${params}`, {
     headers: {
