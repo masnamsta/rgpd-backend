@@ -179,7 +179,7 @@ async function rafraichirCacheRGPD() {
               vus.set(d.id, formaterDecision(d));
             }
           });
-
+        console.log(`Judilibre "${query}" page ${page} : ${resultats.length} résultats (total: ${total})`);
           if (resultats.length === 0) break;
           page++;
           await pause(PAUSE_MS);
@@ -313,7 +313,7 @@ async function rafraichirCacheLegifrance() {
             const f = formaterDecisionLegifrance(d, fond);
             if (f.id && !vus.has(f.id)) vus.set(f.id, f);
           });
-
+          console.log(`Légifrance ${fond} "${motCle}" page ${page} : ${resultats.length} résultats`);
           if (resultats.length === 0) break;
           page++;
           await pause(PAUSE_MS);
