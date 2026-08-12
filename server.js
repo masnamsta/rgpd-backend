@@ -10,6 +10,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const cron = require('node-cron');
+const { Pool } = require('pg');
 
 const app = express();
 app.use(express.static('public'));
@@ -31,7 +32,65 @@ const CONFIG = {
 };
 
 const { oauthUrl, judilibreBase, legifranceBase } = CONFIG[ENV];
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
+async function initDbRGPD() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS decisions_rgpd (
+      id TEXT PRIMARY KEY,
+      juridiction TEXT,
+      chambre TEXT,
+      numero TEXT,
+      date TEXT,
+      titre TEXT,
+      themes JSONB,
+      themes_rgpd JSONB,
+      source TEXT,
+      url TEXT,
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+  console.log('Table decisions_rgpd prête.');
+}
+
+async function sauvegarderDecisions(decisions) {
+  for (const d of decisions) {
+    try {
+      await pool.query(
+        `INSERT INTO decisions_rgpd (id, juridiction, chambre, numero, date, titre, themes, themes_rgpd, source, url, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+         ON CONFLICT (id) DO UPDATE SET
+           juridiction = EXCLUDED.juridiction,
+           chambre = EXCLUDED.chambre,
+           numero = EXCLUDED.numero,
+           date = EXCLUDED.date,
+           titre = EXCLUDED.titre,
+           themes = EXCLUDED.themes,
+           themes_rgpd = EXCLUDED.themes_rgpd,
+           source = EXCLUDED.source,
+           url = EXCLUDED.url,
+           updated_at = NOW();`,
+        [
+          d.id,
+          d.juridiction || null,
+          d.chambre || null,
+          d.numero || null,
+          d.date || null,
+          d.titre || null,
+          JSON.stringify(d.themes || []),
+          JSON.stringify(d.themesRgpd || []),
+          d.source || null,
+          d.url || null,
+        ]
+      );
+    } catch (err) {
+      console.error(`Erreur sauvegarde décision ${d.id} :`, err.message);
+    }
+  }
+  console.log(`${decisions.length} décisions sauvegardées en base.`);
+}
 let cachedToken = null;
 let tokenExpiresAt = 0;
 
@@ -213,6 +272,7 @@ async function rafraichirCacheRGPD() {
     ];
     derniereMiseAJour = new Date().toISOString();
     console.log(`[${derniereMiseAJour}] Cache RGPD rafraîchi : ${cacheDecisions.length} décisions uniques`);
+        await sauvegarderDecisions(cacheDecisions);
   } finally {
     rafraichissementEnCours = false;
   }
@@ -404,8 +464,10 @@ async function rafraichirCacheCJUE() {
   cacheCJUE = Array.from(vus.values());
   console.log(`Cache CJUE rafraîchi : ${cacheCJUE.length} décisions`);
 }
-cron.schedule('0 */6 * * *', rafraichirCacheRGPD);
-rafraichirCacheRGPD();
+initDbRGPD().then(() => {
+  cron.schedule('0 */6 * * *', rafraichirCacheRGPD);
+  rafraichirCacheRGPD();
+});
 
 app.get('/api/jurisprudence', async (req, res) => {
   try {
