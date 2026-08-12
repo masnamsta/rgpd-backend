@@ -91,6 +91,26 @@ async function sauvegarderDecisions(decisions) {
   }
   console.log(`${decisions.length} décisions sauvegardées en base.`);
 }
+async function chargerCacheDepuisDB() {
+  const { rows } = await pool.query('SELECT * FROM decisions_rgpd');
+  cacheDecisions = rows.map((r) => ({
+    id: r.id,
+    juridiction: r.juridiction,
+    chambre: r.chambre,
+    numero: r.numero,
+    date: r.date,
+    titre: r.titre,
+    themes: r.themes || [],
+    themesRgpd: r.themes_rgpd || [],
+    source: r.source,
+    url: r.url,
+  }));
+
+  const { rows: maxRows } = await pool.query('SELECT MAX(updated_at) AS max FROM decisions_rgpd');
+  derniereMiseAJour = maxRows[0].max ? new Date(maxRows[0].max).toISOString() : null;
+
+  console.log(`Cache chargé depuis la base : ${cacheDecisions.length} décisions (dernière maj : ${derniereMiseAJour})`);
+}
 let cachedToken = null;
 let tokenExpiresAt = 0;
 
@@ -464,7 +484,8 @@ async function rafraichirCacheCJUE() {
   cacheCJUE = Array.from(vus.values());
   console.log(`Cache CJUE rafraîchi : ${cacheCJUE.length} décisions`);
 }
-initDbRGPD().then(() => {
+initDbRGPD().then(async () => {
+  await chargerCacheDepuisDB();
   cron.schedule('0 */6 * * *', rafraichirCacheRGPD);
   rafraichirCacheRGPD();
 });
