@@ -539,7 +539,7 @@ initDbRGPD().then(async () => {
 
 app.get('/api/jurisprudence', async (req, res) => {
   try {
-    const { query = '', jurisdiction, page = 0, page_size = 10, live } = req.query;
+    const { query = '', jurisdiction, page = 0, page_size = 24, live } = req.query;
 
     if (!live) {
       let resultatsFiltres = cacheDecisions;
@@ -552,10 +552,20 @@ app.get('/api/jurisprudence', async (req, res) => {
           (d.themesRgpd && d.themesRgpd.join(' ').toLowerCase().includes(motCle))
         );
       }
+      // CORRECTIF : pagination côté serveur. Le cache contient désormais
+      // plusieurs milliers de décisions ; renvoyer resultatsFiltres en
+      // entier à chaque requête forçait le client à télécharger et rendre
+      // tout le tableau. On ne renvoie plus qu'une tranche (page/page_size),
+      // resultatsFiltres restant trié par date décroissante en amont.
+      const pageNum = Math.max(0, parseInt(page, 10) || 0);
+      const pageSizeNum = Math.max(1, parseInt(page_size, 10) || 24);
+      const debut = pageNum * pageSizeNum;
+      const resultatsPage = resultatsFiltres.slice(debut, debut + pageSizeNum);
+
       return res.json({
         total: resultatsFiltres.length,
         derniere_maj: derniereMiseAJour,
-        results: resultatsFiltres,
+        results: resultatsPage,
       });
     }
 
