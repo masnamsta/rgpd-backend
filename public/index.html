@@ -320,8 +320,10 @@ return NOMS_JURIDICTIONS[j] || (juridiction || 'Décision').toUpperCase();
 }
 const TAILLE_PAGE_AFFICHAGE = 24;
 const JOURS_NOUVEAU = 14;
-let resultatsCourants = [];
-let nombreAffiche = 0;
+let pageCourante = 0;
+let totalDisponible = 0;
+let motCleActuel = '';
+let requeteEnCours = false;
 
 function estRecente(dateStr) {
   if (!dateStr) return false;
@@ -350,65 +352,77 @@ ${decision.url ? `<div class="art"><a href="${decision.url}" target="_blank" rel
   return fiche;
 }
 
-function afficherPage() {
+function afficherBoutonPlus() {
   const boite = document.getElementById('caseGrid');
   const conteneur = boite.parentElement;
   const ancienBouton = document.getElementById('boutonPlus');
   if (ancienBouton) ancienBouton.remove();
 
-  const aAfficher = resultatsCourants.slice(0, nombreAffiche);
-  boite.innerHTML = '';
-  aAfficher.forEach(decision => boite.appendChild(creerFiche(decision)));
+  const dejaCharges = boite.children.length;
+  if (dejaCharges >= totalDisponible) return;
 
-  if (nombreAffiche < resultatsCourants.length) {
-    const bouton = document.createElement('button');
-    bouton.id = 'boutonPlus';
-    bouton.className = 'mono';
-    bouton.textContent = `Charger plus de décisions (${resultatsCourants.length - nombreAffiche} restantes)`;
-    bouton.style.cssText = 'display:block;width:100%;margin-top:24px;padding:14px;border:1px solid var(--navy);background:transparent;color:var(--navy);cursor:pointer;font-size:12px;letter-spacing:0.5px;text-transform:uppercase;';
-    bouton.addEventListener('click', () => {
-      nombreAffiche += TAILLE_PAGE_AFFICHAGE;
-      afficherPage();
+  const bouton = document.createElement('button');
+  bouton.id = 'boutonPlus';
+  bouton.className = 'mono';
+  bouton.textContent = `Charger plus de décisions (${totalDisponible - dejaCharges} restantes)`;
+  bouton.style.cssText = 'display:block;width:100%;margin-top:24px;padding:14px;border:1px solid var(--navy);background:transparent;color:var(--navy);cursor:pointer;font-size:12px;letter-spacing:0.5px;text-transform:uppercase;';
+  bouton.addEventListener('click', () => {
+    pageCourante += 1;
+    chargerPage();
+  });
+  conteneur.appendChild(bouton);
+}
+
+function chargerPage() {
+  if (requeteEnCours) return;
+  requeteEnCours = true;
+  const parametres = new URLSearchParams({
+    query: motCleActuel || 'RGPD',
+    page: pageCourante,
+    page_size: TAILLE_PAGE_AFFICHAGE,
+  });
+
+  fetch(`${ADRESSE_SERVEUR}/api/jurisprudence?${parametres}`)
+    .then(reponse => reponse.json())
+    .then(donnees => {
+      requeteEnCours = false;
+      const boite = document.getElementById('caseGrid');
+      totalDisponible = donnees.total || 0;
+
+      if (pageCourante === 0) {
+        if (donnees.derniere_maj) {
+          const dateMaj = new Date(donnees.derniere_maj);
+          const dateFormatee = dateMaj.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+          document.querySelector('.eyebrow').innerHTML = `<span class="dot"></span>Mise à jour du ${dateFormatee}`;
+        }
+        document.getElementById('compteurFiches').textContent = totalDisponible;
+        document.getElementById('compteurTag').textContent = String(totalDisponible).padStart(2, '0');
+        boite.innerHTML = '';
+        if (totalDisponible === 0) {
+          boite.innerHTML = '<p class="mono" style="color:var(--ink-soft);font-size:13px;">Aucune décision trouvée pour le moment.</p>';
+          return;
+        }
+      }
+
+      (donnees.results || []).forEach(decision => boite.appendChild(creerFiche(decision)));
+      afficherBoutonPlus();
+      appliquerFiltres();
+    })
+    .catch(erreur => {
+      requeteEnCours = false;
+      const boite = document.getElementById('caseGrid');
+      if (pageCourante === 0) {
+        boite.innerHTML = '<p class="mono" style="color:var(--red);font-size:13px;">Impossible de contacter le serveur pour le moment. Réessaie dans une minute (le serveur gratuit met parfois du temps à se réveiller).</p>';
+      }
+      console.error(erreur);
     });
-    conteneur.appendChild(bouton);
-  }
-
-  appliquerFiltres();
 }
 
 function chargerDecisions(motCle = '') {
-fetch(`${ADRESSE_SERVEUR}/api/jurisprudence?query=${encodeURIComponent(motCle || 'RGPD')}`)
-.then(reponse => reponse.json())
-.then(donnees => {
-if (donnees.derniere_maj) {
-const dateMaj = new Date(donnees.derniere_maj);
-const dateFormatee = dateMaj.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-document.querySelector('.eyebrow').innerHTML = `<span class="dot"></span>Mise à jour du ${dateFormatee}`;
-}
-const boite = document.getElementById('caseGrid');
-const nbResultats = (donnees.results || []).length;
-document.getElementById('compteurFiches').textContent = nbResultats;
-document.getElementById('compteurTag').textContent = String(nbResultats).padStart(2, '0');
-const ancienBouton = document.getElementById('boutonPlus');
-if (ancienBouton) ancienBouton.remove();
-if (!donnees.results || donnees.results.length === 0) {
-boite.innerHTML = '<p class="mono" style="color:var(--ink-soft);font-size:13px;">Aucune décision trouvée pour le moment.</p>';
-resultatsCourants = [];
-return;
-}
-resultatsCourants = [...donnees.results].sort((a, b) => {
-const dateA = a.date ? new Date(a.date).getTime() : 0;
-const dateB = b.date ? new Date(b.date).getTime() : 0;
-return dateB - dateA;
-});
-nombreAffiche = TAILLE_PAGE_AFFICHAGE;
-afficherPage();
-})
-.catch(erreur => {
-const boite = document.getElementById('caseGrid');
-boite.innerHTML = '<p class="mono" style="color:var(--red);font-size:13px;">Impossible de contacter le serveur pour le moment. Réessaie dans une minute (le serveur gratuit met parfois du temps à se réveiller).</p>';
-console.error(erreur);
-});
+  motCleActuel = motCle;
+  pageCourante = 0;
+  totalDisponible = 0;
+  chargerPage();
 }
 chargerDecisions();
 let delaiRecherche;
