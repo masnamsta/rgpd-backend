@@ -106,9 +106,6 @@ async function chargerCacheDepuisDB() {
     url: r.url,
   }));
 
-  // CORRECTIF : tri global par date décroissante. Sans ce tri, l'ordre du
-  // tableau dépend de l'ordre de retour PostgreSQL (non garanti) et les
-  // décisions récentes peuvent se retrouver noyées après un redémarrage.
   cacheDecisions.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
   const { rows: maxRows } = await pool.query('SELECT MAX(updated_at) AS max FROM decisions_rgpd');
@@ -155,14 +152,8 @@ async function chercherJudilibre({ query, jurisdiction, page = 0, page_size = 10
   params.append('query', query);
   params.append('page', page);
   params.append('page_size', page_size);
-  // CORRECTIF : tri explicite par date pour ne pas manquer les décisions
-  // les plus récentes (Judilibre trie par pertinence par défaut, ce qui
-  // pouvait exclure les nouvelles décisions du cache RGPD).
   if (sort) params.append('sort', sort);
   if (order) params.append('order', order);
-  // AJOUT : filtre incrémental optionnel (date_start/date_end), pour ne
-  // récupérer que les décisions publiées depuis un rafraîchissement
-  // précédent au lieu de tout réinterroger à chaque cron.
   if (date_start) params.append('date_start', date_start);
   if (date_end) params.append('date_end', date_end);
 
@@ -262,12 +253,6 @@ async function rafraichirCacheRGPD() {
   try {
     const vus = new Map();
 
-    // AJOUT : rafraîchissement incrémental. Si le cache a déjà été peuplé
-    // au moins une fois, on ne redemande à Judilibre que les décisions
-    // publiées depuis cette date, avec une marge de sécurité de 8 jours
-    // pour couvrir le délai de publication des arrêts hors Bulletin. Cela
-    // évite de tout réinterroger (25 mots-clés x jusqu'à 20 pages) à
-    // chaque cron, sans jamais supprimer les décisions déjà en cache.
     let dateDepuis = null;
     if (derniereMiseAJour) {
       const marge = new Date(derniereMiseAJour);
@@ -320,22 +305,12 @@ async function rafraichirCacheRGPD() {
       console.error('Erreur globale rafraîchissement CJUE :', err.message);
     }
 
-    // CORRECTIF : fusion avec le cache existant au lieu d'un remplacement
-    // complet. Les décisions déjà en cache (chargées depuis la base au
-    // démarrage ou accumulées lors des rafraîchissements précédents) sont
-    // conservées ; seules les décisions Judilibre/Légifrance/CJUE
-    // retournées par ce rafraîchissement viennent s'y ajouter ou mettre à
-    // jour une entrée existante (par id).
     const cacheParId = new Map(cacheDecisions.map((d) => [d.id, d]));
     Array.from(vus.values()).forEach((d) => cacheParId.set(d.id, { ...d, source: 'judilibre' }));
     cacheLegifrance.forEach((d) => cacheParId.set(d.id, d));
     cacheCJUE.forEach((d) => cacheParId.set(d.id, d));
 
     cacheDecisions = Array.from(cacheParId.values());
-    // CORRECTIF : tri global par date décroissante. Les décisions étaient
-    // triées dans chaque requête individuelle mais pas globalement une fois
-    // fusionnées (25 mots-clés Judilibre + Legifrance + CJUE), ce qui noyait
-    // des décisions récentes au milieu du tableau.
     cacheDecisions.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
     derniereMiseAJour = new Date().toISOString();
     console.log(`[${derniereMiseAJour}] Cache RGPD rafraîchi : ${cacheDecisions.length} décisions uniques (dont ${vus.size} nouvelles/mises à jour Judilibre)`);
@@ -537,9 +512,24 @@ initDbRGPD().then(async () => {
   rafraichirCacheRGPD();
 });
 
+// AJOUT : mappe la juridiction brute d'une décision (cc, ca, cjue, ce,
+// cnil...) vers le même code court utilisé côté frontend pour les boutons
+// de filtre (cass, ca, cjue, ce, cnil, autre), afin que le filtre
+// juridiction s'applique sur tout le cache et pas seulement sur la page déjà
+// chargée dans le navigateur.
+function courtDepuisJuridiction(juridiction) {
+  const j = (juridiction || '').toLowerCase();
+  if (j === 'cjue' || j.includes('cour de justice')) return 'cjue';
+  if (j === 'cc' || j.includes('cass')) return 'cass';
+  if (j === 'ca' || j.includes('appel')) return 'ca';
+  if (j === 'ce') return 'ce';
+  if (j === 'cnil') return 'cnil';
+  return 'autre';
+}
+
 app.get('/api/jurisprudence', async (req, res) => {
   try {
-    const { query = '', jurisdiction, page = 0, page_size = 24, live } = req.query;
+    const { query = '', jurisdiction, page = 0, page_size = 24, live, court, theme } = req.query;
 
     if (!live) {
       let resultatsFiltres = cacheDecisions;
@@ -552,11 +542,18 @@ app.get('/api/jurisprudence', async (req, res) => {
           (d.themesRgpd && d.themesRgpd.join(' ').toLowerCase().includes(motCle))
         );
       }
-      // CORRECTIF : pagination côté serveur. Le cache contient désormais
-      // plusieurs milliers de décisions ; renvoyer resultatsFiltres en
-      // entier à chaque requête forçait le client à télécharger et rendre
-      // tout le tableau. On ne renvoie plus qu'une tranche (page/page_size),
-      // resultatsFiltres restant trié par date décroissante en amont.
+
+      // AJOUT : filtres juridiction (court) et thème RGPD (theme), appliqués
+      // sur l'ensemble des résultats déjà filtrés par mot-clé, avant la
+      // pagination. Auparavant ces filtres n'existaient que côté client et
+      // ne portaient que sur les décisions déjà chargées dans le navigateur.
+      if (court && court !== 'all') {
+        resultatsFiltres = resultatsFiltres.filter(d => courtDepuisJuridiction(d.juridiction) === court);
+      }
+      if (theme && theme !== 'all') {
+        resultatsFiltres = resultatsFiltres.filter(d => (d.themesRgpd || []).includes(theme));
+      }
+
       const pageNum = Math.max(0, parseInt(page, 10) || 0);
       const pageSizeNum = Math.max(1, parseInt(page_size, 10) || 24);
       const debut = pageNum * pageSizeNum;
