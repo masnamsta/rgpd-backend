@@ -106,6 +106,11 @@ async function chargerCacheDepuisDB() {
     url: r.url,
   }));
 
+  // CORRECTIF : tri global par date décroissante. Sans ce tri, l'ordre du
+  // tableau dépend de l'ordre de retour PostgreSQL (non garanti) et les
+  // décisions récentes peuvent se retrouver noyées après un redémarrage.
+  cacheDecisions.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
   const { rows: maxRows } = await pool.query('SELECT MAX(updated_at) AS max FROM decisions_rgpd');
   derniereMiseAJour = maxRows[0].max ? new Date(maxRows[0].max).toISOString() : null;
 
@@ -295,6 +300,11 @@ async function rafraichirCacheRGPD() {
       ...cacheLegifrance,
       ...cacheCJUE,
     ];
+    // CORRECTIF : tri global par date décroissante. Les décisions étaient
+    // triées dans chaque requête individuelle mais pas globalement une fois
+    // fusionnées (25 mots-clés Judilibre + Legifrance + CJUE), ce qui noyait
+    // des décisions récentes au milieu du tableau.
+    cacheDecisions.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
     derniereMiseAJour = new Date().toISOString();
     console.log(`[${derniereMiseAJour}] Cache RGPD rafraîchi : ${cacheDecisions.length} décisions uniques`);
         await sauvegarderDecisions(cacheDecisions);
