@@ -144,12 +144,17 @@ async function getAccessToken() {
   return cachedToken;
 }
 
-async function chercherJudilibre({ query, jurisdiction, page = 0, page_size = 10 }) {
+async function chercherJudilibre({ query, jurisdiction, page = 0, page_size = 10, sort, order }) {
   const token = await getAccessToken();
   const params = new URLSearchParams();
   params.append('query', query);
   params.append('page', page);
   params.append('page_size', page_size);
+  // CORRECTIF : tri explicite par date pour ne pas manquer les décisions
+  // les plus récentes (Judilibre trie par pertinence par défaut, ce qui
+  // pouvait exclure les nouvelles décisions du cache RGPD).
+  if (sort) params.append('sort', sort);
+  if (order) params.append('order', order);
 
   const jurisdictions = jurisdiction
     ? (Array.isArray(jurisdiction) ? jurisdiction : [jurisdiction])
@@ -253,7 +258,7 @@ async function rafraichirCacheRGPD() {
 
       while (page * TAILLE_PAGE < total && page < MAX_PAGES) {
         try {
-          const data = await chercherJudilibre({ query, page, page_size: TAILLE_PAGE });
+          const data = await chercherJudilibre({ query, page, page_size: TAILLE_PAGE, sort: 'date', order: 'desc' });
           total = data.total || 0;
           const resultats = data.results || [];
 
