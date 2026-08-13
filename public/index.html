@@ -380,6 +380,8 @@ function chargerPage() {
     query: motCleActuel || 'RGPD',
     page: pageCourante,
     page_size: TAILLE_PAGE_AFFICHAGE,
+    court: filtreJuridictionActif,
+    theme: filtreThemeActif,
   });
 
   fetch(`${ADRESSE_SERVEUR}/api/jurisprudence?${parametres}`)
@@ -404,9 +406,12 @@ function chargerPage() {
         }
       }
 
+      // CORRECTIF : les filtres juridiction/thème sont désormais appliqués
+      // côté serveur (paramètres court/theme ci-dessus), sur l'ensemble du
+      // cache. Les résultats renvoyés correspondent déjà au filtre actif,
+      // il n'y a donc plus besoin de masquer des cartes après affichage.
       (donnees.results || []).forEach(decision => boite.appendChild(creerFiche(decision)));
       afficherBoutonPlus();
-      appliquerFiltres();
     })
     .catch(erreur => {
       requeteEnCours = false;
@@ -435,21 +440,16 @@ document.getElementById('menuMobile').addEventListener('click', ()=>{ document.q
 let filtreJuridictionActif = 'all';
 let filtreThemeActif = 'all';
 
-function appliquerFiltres() {
-  document.querySelectorAll('.case-card').forEach(c => {
-    const okJuridiction = (filtreJuridictionActif === 'all' || c.dataset.court === filtreJuridictionActif);
-    const themesCarte = (c.dataset.themes || '').split(',');
-    const okTheme = (filtreThemeActif === 'all' || themesCarte.includes(filtreThemeActif));
-    c.style.display = (okJuridiction && okTheme) ? '' : 'none';
-  });
-}
-
+// CORRECTIF : un changement de filtre juridiction/thème relance désormais
+// un chargement complet (page 0) avec les nouveaux paramètres court/theme
+// envoyés au serveur, au lieu de simplement masquer des cartes déjà
+// chargées dans le navigateur — le filtre porte ainsi sur tout le cache.
 document.querySelectorAll('.filters button').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     filtreJuridictionActif = btn.dataset.f;
-    appliquerFiltres();
+    chargerDecisions(motCleActuel);
   });
 });
 
@@ -458,7 +458,7 @@ document.querySelectorAll('.filters-theme button').forEach(btn => {
     document.querySelectorAll('.filters-theme button').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     filtreThemeActif = btn.dataset.t;
-    appliquerFiltres();
+    chargerDecisions(motCleActuel);
   });
 });
 </script>
