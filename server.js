@@ -345,7 +345,31 @@ async function rafraichirCacheRGPD() {
     cacheLegifrance.forEach((d) => cacheParId.set(d.id, d));
     cacheCJUE.forEach((d) => cacheParId.set(d.id, d));
 
-    cacheDecisions = Array.from(cacheParId.values());
+    // CORRECTIF : purge retroactive. Le filtre estPertinentRGPD() ne
+    // s'appliquait jusqu'ici qu'aux nouvelles decisions Judilibre recuperees
+    // a ce cycle (vus) -- les decisions Judilibre non pertinentes deja
+    // presentes en cache/en base (accumulees avant ce filtre) restaient donc
+    // indefiniment. On repasse ici TOUTES les decisions Judilibre du cache
+    // fusionne par le meme filtre, et on supprime de la base celles qui ne
+    // passent pas.
+    let fusionne = Array.from(cacheParId.values());
+    const idsAPurger = [];
+    fusionne = fusionne.filter((d) => {
+      if (d.source !== 'judilibre') return true;
+      const pertinent = estPertinentRGPD({ summary: d.titre, themes: d.themes });
+      if (!pertinent) idsAPurger.push(d.id);
+      return pertinent;
+    });
+    if (idsAPurger.length) {
+      try {
+        await pool.query('DELETE FROM decisions_rgpd WHERE id = ANY($1)', [idsAPurger]);
+        console.log(`Purge retroactive : ${idsAPurger.length} anciennes decisions Judilibre non pertinentes supprimees.`);
+      } catch (err) {
+        console.error('Erreur purge decisions non pertinentes :', err.message);
+      }
+    }
+
+    cacheDecisions = fusionne;
     cacheDecisions.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
     derniereMiseAJour = new Date().toISOString();
     console.log(`[${derniereMiseAJour}] Cache RGPD rafraîchi : ${cacheDecisions.length} décisions uniques (dont ${vus.size} nouvelles/mises à jour Judilibre)`);
