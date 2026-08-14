@@ -193,6 +193,34 @@ function classifierDecision(d) {
     .map(([cle]) => cle);
   return detectes.length ? detectes : ['autre'];
 }
+
+// CORRECTIF : filtre de pertinence appliqué aux résultats Judilibre.
+// La recherche plein texte de l'API Judilibre matche des mots isolés
+// (ex : "traitement" au sens salarial dans un litige de droit du travail),
+// ce qui pollue le cache avec des décisions sans rapport avec le RGPD.
+// On ne retient donc que les décisions dont le résumé/les thèmes officiels
+// (les seuls champs enrichis disponibles) contiennent un terme RGPD
+// reconnaissable. Les décisions non enrichies (summary/themes vides), qui
+// ne peuvent de toute façon pas être classifiées de façon fiable, sont
+// écartées plutôt que de tomber dans la catégorie "autre".
+const MOTS_CLES_PERTINENCE_RGPD = [
+  'donnée personnelle', 'données personnelles',
+  'donnée à caractère personnel', 'données à caractère personnel',
+  'rgpd', 'cnil', 'protection des données',
+  'informatique et libertés', 'traitement de données',
+  'responsable du traitement', 'responsable de traitement',
+  'sous-traitant', 'sous-traitance',
+  "droit d'accès aux données", "droit à l'oubli", "droit d'opposition",
+  'violation de données', 'transfert de données', 'transfert hors union européenne',
+  'délégué à la protection des données', 'vidéosurveillance', 'géolocalisation',
+  'biométrie', 'décision automatisée', 'consentement au traitement',
+];
+
+function estPertinentRGPD(d) {
+  const texte = `${d.summary || ''} ${(d.themes || []).join(' ')}`.toLowerCase();
+  if (!texte.trim()) return false;
+  return MOTS_CLES_PERTINENCE_RGPD.some((mot) => texte.includes(mot));
+}
 function formaterDecision(d) {
   return {
     id: d.id,
@@ -252,6 +280,7 @@ async function rafraichirCacheRGPD() {
 
   try {
     const vus = new Map();
+    let rejetes = 0;
 
     let dateDepuis = null;
     if (derniereMiseAJour) {
@@ -278,6 +307,10 @@ async function rafraichirCacheRGPD() {
           const resultats = data.results || [];
 
           resultats.forEach((d) => {
+            if (!estPertinentRGPD(d)) {
+              rejetes++;
+              return;
+            }
             if (!vus.has(d.id)) {
               vus.set(d.id, formaterDecision(d));
             }
@@ -292,6 +325,8 @@ async function rafraichirCacheRGPD() {
         }
       }
     }
+
+    console.log(`Filtre de pertinence Judilibre : ${rejetes} décisions écartées (summary/themes vides ou hors sujet RGPD)`);
 
     try {
       await rafraichirCacheLegifrance();
