@@ -203,6 +203,10 @@ function classifierDecision(d) {
 // reconnaissable. Les décisions non enrichies (summary/themes vides), qui
 // ne peuvent de toute façon pas être classifiées de façon fiable, sont
 // écartées plutôt que de tomber dans la catégorie "autre".
+// CORRECTIF (issue #1) : ajout de d.solution comme source de texte
+// supplémentaire. Beaucoup de décisions Judilibre n'ont pas de "summary"
+// (sommaire officiel) rempli mais ont un champ "solution" renseigné ; ces
+// décisions étaient rejetées à tort avant ce correctif.
 const MOTS_CLES_PERTINENCE_RGPD = [
   'donnée personnelle', 'données personnelles',
   'donnée à caractère personnel', 'données à caractère personnel',
@@ -217,7 +221,7 @@ const MOTS_CLES_PERTINENCE_RGPD = [
 ];
 
 function estPertinentRGPD(d) {
-  const texte = `${d.summary || ''} ${(d.themes || []).join(' ')}`.toLowerCase();
+  const texte = `${d.summary || ''} ${d.solution || ''} ${(d.themes || []).join(' ')}`.toLowerCase();
   if (!texte.trim()) return false;
   return MOTS_CLES_PERTINENCE_RGPD.some((mot) => texte.includes(mot));
 }
@@ -326,7 +330,7 @@ async function rafraichirCacheRGPD() {
       }
     }
 
-    console.log(`Filtre de pertinence Judilibre : ${rejetes} décisions écartées (summary/themes vides ou hors sujet RGPD)`);
+    console.log(`Filtre de pertinence Judilibre : ${rejetes} décisions écartées (summary/solution/themes vides ou hors sujet RGPD)`);
 
     try {
       await rafraichirCacheLegifrance();
