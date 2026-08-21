@@ -1,0 +1,13 @@
+name: Keep Render Alive
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping rgpd-backend (evite la mise en veille Render et permet au cron interne de tourner)
+        run: curl -sSf --max-time 25 https://rgpd-backend.onrender.com/ -o /dev/null
