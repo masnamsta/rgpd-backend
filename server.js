@@ -218,6 +218,21 @@ const MOTS_CLES_PERTINENCE_RGPD = [
   'violation de données', 'transfert de données', 'transfert hors union européenne',
   'délégué à la protection des données', 'vidéosurveillance', 'géolocalisation',
   'biométrie', 'décision automatisée', 'consentement au traitement',
+  // AJOUT (issue #2) : vocabulaire RGPD complémentaire pour élargir le filtre
+  // de pertinence, qui reposait jusqu'ici sur seulement 24 expressions et
+  // excluait des décisions pourtant clairement liées au RGPD (ex : arrêts
+  // parlant de "base légale" ou de "durée de conservation" sans jamais
+  // employer littéralement "RGPD" ou "données personnelles").
+  'base légale du traitement', 'intérêt légitime', 'minimisation des données',
+  'durée de conservation des données', 'profilage', 'cookies',
+  'finalité du traitement', 'registre des traitements',
+  "analyse d'impact relative à la protection des données", 'aipd',
+  'protection des données dès la conception', 'privacy by design',
+  'anonymisation', 'pseudonymisation', 'exercice des droits',
+  'plainte auprès de la cnil', 'mise en demeure de la cnil',
+  'amende administrative', 'sanction pécuniaire de la cnil',
+  'autorité de contrôle', 'personne concernée', 'flux transfrontière de données',
+  'clauses contractuelles types', 'données de santé', 'données sensibles',
 ];
 
 function estPertinentRGPD(d) {
@@ -265,6 +280,17 @@ const REQUETES_RGPD = [
   'décision automatisée',
   'intelligence artificielle',
   'loi informatique et libertés',
+  // AJOUT (issue #2) : requêtes supplémentaires pour élargir le net de
+  // recherche Judilibre à des notions RGPD qui n'étaient interrogées par
+  // aucun des termes précédents.
+  'base légale du traitement',
+  'intérêt légitime',
+  'minimisation des données',
+  'analyse d\'impact relative à la protection des données',
+  'anonymisation données personnelles',
+  'pseudonymisation',
+  'données de santé',
+  'profilage',
 ];
 const TAILLE_PAGE = 10;
 const PAUSE_MS = 350;
